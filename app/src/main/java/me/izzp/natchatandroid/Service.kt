@@ -23,9 +23,10 @@ object Service {
     private val executor = Executors.newFixedThreadPool(4)
     private lateinit var socket: DatagramSocket
     private lateinit var regTimer: Timer
+    private val touchTimers = mutableMapOf<String, Timer>()
     private var running = false
-    private val serverAddr by lazy { InetSocketAddress("192.168.199.144", 13688) }
-    private val myName by lazy { "${Build.BOARD}_${Build.BRAND}" }
+    private val serverAddr by lazy { InetSocketAddress(SERVER_HOST, SERVER_PORT) }
+    private val myName by lazy { Build.BOARD }
     private val _users = mutableListOf<User>()
     val users get() = _users.toList()
     var listener: ServiceListener? = null
@@ -34,7 +35,7 @@ object Service {
     fun connect() {
         running = true
         thread {
-            socket = DatagramSocket()
+            socket = DatagramSocket(InetSocketAddress("0.0.0.0", 0))
             while (running) {
                 val bytes = ByteArray(1024 * 128)
                 val packet = DatagramPacket(bytes, bytes.size)
@@ -85,6 +86,10 @@ object Service {
         return user
     }
 
+    private fun addUser(name: String, ip: String, port: Int) {
+        addUser(name, InetSocketAddress(ip, port))
+    }
+
     private fun removeUser(name: String): User? {
         val user = _users.find { it.name == name }
         if (user != null) {
@@ -98,7 +103,7 @@ object Service {
 
     private fun processPacket(packet: DatagramPacket) {
         val content = String(packet.data, packet.offset, packet.length)
-        println("receive:${packet.socketAddress} ${content}")
+        println("receive:${packet.socketAddress} $content")
         val msg = gson.fromJson(content, Msg::class.java)
         when (msg.Event) {
             "reg" -> {
@@ -106,12 +111,22 @@ object Service {
                     regTimer.cancel()
                     runOnMainThread { listener?.registered() }
                 } else {
-                    addUser(msg.Name, packet.socketAddress)
+                    addUser(msg.Name, msg.IP, msg.Port)
                 }
             }
             "touch" -> {
-                send(packet.socketAddress, Msg(Event = "touch", Name = myName))
-                addUser(msg.Name, packet.socketAddress)
+                if (msg.Msg == "unreg") {
+                    // nothing
+                } else if (msg.Msg == "offline") {
+                    removeUser(msg.Name)
+                } else if (msg.Port > 0) {
+                    // 服务器通知对方ip
+                    addUser(msg.Name, msg.IP, msg.Port)
+                    beginTouch(msg.Name, msg.IP, msg.Port)
+                } else if (msg.Name.isNotEmpty()) {
+                    // 对方主动联系
+                    cancelTouch(msg.Name)
+                }
             }
             "unreg" -> {
                 removeUser(msg.Name)
@@ -133,6 +148,7 @@ object Service {
                 runOnMainThread { listener?.users(_users) }
             }
             "chat" -> {
+                DB.receive(msg.Name, msg.Msg)
                 runOnMainThread { listener?.msg(msg) }
             }
             else -> {
@@ -144,7 +160,7 @@ object Service {
     private fun send(addr: SocketAddress, msg: Any) {
         val json = gson.toJson(msg)
         executor.execute {
-            if (this::socket.isInitialized) {
+            if (this::socket.isInitialized && !socket.isClosed) {
                 val bytes = json.toByteArray()
                 val packet = DatagramPacket(bytes, 0, bytes.size, addr)
                 socket.send(packet)
@@ -152,7 +168,54 @@ object Service {
         }
     }
 
+    private fun send(ip: String, port: Int, msg: Any) {
+        send(InetSocketAddress(ip, port), msg)
+    }
+
+    private fun beginTouch(name: String, ip: String, port: Int) {
+        var timer = touchTimers[name]
+        if (timer == null) {
+            timer = Timer()
+            touchTimers[name] = timer
+        }
+        timer!!.schedule(object : TimerTask() {
+            private var times = 0
+            override fun run() {
+                times++
+                if (times >= 10) {
+                    cancelTouch(name)
+                } else {
+                    println("touch: $name")
+                    send(ip, port, Msg(Event = "touch", Name = myName))
+                }
+            }
+        }, Date(), 1000)
+    }
+
+    private fun cancelTouch(name: String) {
+        println("touch cancel: $name")
+        val timer = touchTimers[name]
+        if (timer != null) {
+            timer.cancel()
+            touchTimers.remove(name)
+        }
+    }
+
     fun loadUsers() {
         send(serverAddr, Msg("users"))
+    }
+
+    fun requestTouch(name: String) {
+        executor.execute {
+            send(serverAddr, Msg(Event = "touch", Name = myName, ToName = name))
+        }
+    }
+
+    fun sendChat(name: String, msg: String) {
+        DB.send(name, msg)
+        executor.execute {
+            val user = _users.find { it.name == name } ?: return@execute
+            send(user.addr, Msg(Event = "chat", Name = myName, Msg = msg))
+        }
     }
 }

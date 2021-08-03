@@ -1,6 +1,9 @@
 package me.izzp.natchatandroid
 
+import android.content.Intent
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -19,7 +22,11 @@ class MainActivity : AppCompatActivity() {
     inner class Adapter(var users: List<User>) : RecyclerView.Adapter<Holder>() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val view = layoutInflater.inflate(R.layout.userlist_item, parent, false)
-            return Holder(view)
+            val holder = Holder(view)
+            view.setOnClickListener {
+                onClick(holder)
+            }
+            return holder
         }
 
         override fun onBindViewHolder(holder: Holder, position: Int) {
@@ -28,6 +35,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun getItemCount() = users.size
+
+        private fun onClick(holder: Holder) {
+            val intent = Intent(this@MainActivity, ChatActivity::class.java)
+            intent.putExtra("name", users[holder.adapterPosition].name)
+            startActivity(intent)
+        }
     }
 
     private val recyclerView by lazy { findViewById<RecyclerView>(R.id.recyclerView) }
@@ -71,8 +84,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        Service.close()
+    override fun onPause() {
+        super.onPause()
+        if (isFinishing) {
+            Service.close()
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_mainactivity, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.mi_refresh -> {
+                Service.loadUsers()
+            }
+        }
+        return super.onOptionsItemSelected(item)
     }
 }
