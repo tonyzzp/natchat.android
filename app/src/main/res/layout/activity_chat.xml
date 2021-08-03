@@ -17,6 +17,6 @@
         android:background="@drawable/edittext_bg"
         android:hint="input message"
         android:imeOptions="actionSend"
-        android:inputType="text" />
+        android:inputType="text|textMultiLine|textImeMultiLine" />
 
 </LinearLayout>

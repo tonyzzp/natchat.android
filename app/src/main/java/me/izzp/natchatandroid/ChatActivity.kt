@@ -98,8 +98,12 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
 
     override fun onEditorAction(v: TextView, actionId: Int, event: KeyEvent?): Boolean {
         println("onEditorAction ${v.text} $actionId ${event?.keyCode}")
-        if (actionId == EditorInfo.IME_ACTION_SEND) {
-            Service.sendChat(name, et.text.toString())
+        val s = v.text.toString()
+        if (s.isEmpty()) {
+            return false
+        }
+        if (actionId == EditorInfo.IME_ACTION_SEND || event?.keyCode == KeyEvent.KEYCODE_ENTER) {
+            Service.sendChat(name, s)
             et.setText("")
             return true
         }
