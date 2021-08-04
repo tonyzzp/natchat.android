@@ -10,7 +10,7 @@
         <item name="colorSecondaryVariant">@color/theme_orange_dark</item>
         <item name="colorOnSecondary">@color/black</item>
         <!-- Status bar color. -->
-        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
+        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorSurface</item>
         <!-- Customize your theme here. -->
         <item name="android:listSelector">@drawable/list_selector</item>
     </style>

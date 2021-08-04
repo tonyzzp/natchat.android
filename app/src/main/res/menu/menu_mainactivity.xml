@@ -5,11 +5,13 @@
     <item
         android:id="@+id/mi_refresh"
         android:icon="@drawable/ic_refresh"
+        android:iconTint="?colorControlNormal"
         android:title="刷新"
         app:showAsAction="always" />
     <item
         android:id="@+id/mi_settings"
         android:icon="@drawable/ic_settings"
+        android:iconTint="?colorControlNormal"
         android:title="设置"
         app:showAsAction="always" />
 </menu>
