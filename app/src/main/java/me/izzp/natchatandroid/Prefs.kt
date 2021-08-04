@@ -1,24 +1,18 @@
 package me.izzp.natchatandroid
 
-import android.content.Context
-import androidx.core.content.edit
+import android.os.Build
+import androidx.preference.PreferenceManager
 
 object Prefs {
 
-    private val sp by lazy { App.app.getSharedPreferences("prefs", Context.MODE_PRIVATE) }
+    private val sp by lazy { PreferenceManager.getDefaultSharedPreferences(App.app) }
 
-    var name: String = ""
+    val serverHost get() = sp.getString("server_host", "10.0.0.1")
+    val serverPort: Int
         get() {
-            if (field != "") {
-                return field
-            }
-            field = sp.getString("name", "")!!
-            return field
+            val sport = sp.getString("server_port", "13688")!!.trim()
+            val port = sport.toIntOrNull()
+            return port ?: 13688
         }
-        set(value) {
-            field = value
-            sp.edit {
-                putString("name", value)
-            }
-        }
+    val name get() = sp.getString("name", Build.MODEL) ?: "nobody"
 }

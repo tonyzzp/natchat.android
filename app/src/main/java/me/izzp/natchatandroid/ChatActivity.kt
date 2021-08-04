@@ -1,10 +1,7 @@
 package me.izzp.natchatandroid
 
 import android.os.Bundle
-import android.view.Gravity
-import android.view.KeyEvent
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -38,8 +35,11 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
             val msg = messages[position]
             holder.root.gravity =
                 if (msg.type == MessageType.receive) Gravity.START else Gravity.END
+            val array = obtainStyledAttributes(intArrayOf(R.attr.colorSurface))
+            val color = array.getColor(0, 0)
+            array.recycle()
             holder.card.setCardBackgroundColor(
-                if (msg.type == MessageType.receive) 0 else getColor(
+                if (msg.type == MessageType.receive) color else getColor(
                     R.color.theme_blue
                 )
             )
@@ -73,7 +73,11 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        supportActionBar?.title = name
+        supportActionBar?.also {
+            it.title = name
+            it.setDisplayShowHomeEnabled(true)
+            it.setDisplayHomeAsUpEnabled(true)
+        }
         et.setOnEditorActionListener(this)
         refresh()
         DB.addListener(dbListener)
@@ -108,5 +112,13 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
             return true
         }
         return false
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) {
+            finish()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
     }
 }

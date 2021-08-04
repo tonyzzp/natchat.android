@@ -7,6 +7,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -48,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        EventBus.regist(this)
         Service.listener = object : ServiceListener() {
             override fun registered() {
                 Service.loadUsers()
@@ -84,9 +86,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @Event
+    @Keep
+    fun onSettingsChanged(event: String) {
+        println("MainActivity.onSettingsChanged: $event")
+        if (event == "settings_changed") {
+            Service.reconnect()
+        }
+    }
+
     override fun onPause() {
         super.onPause()
         if (isFinishing) {
+            EventBus.unregist(this)
             Service.close()
         }
     }
@@ -100,6 +112,11 @@ class MainActivity : AppCompatActivity() {
         when (item.itemId) {
             R.id.mi_refresh -> {
                 Service.loadUsers()
+                return true
+            }
+            R.id.mi_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                return true
             }
         }
         return super.onOptionsItemSelected(item)

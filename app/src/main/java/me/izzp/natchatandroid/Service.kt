@@ -1,6 +1,5 @@
 package me.izzp.natchatandroid
 
-import android.os.Build
 import com.google.gson.Gson
 import org.json.JSONArray
 import java.io.IOException
@@ -25,16 +24,15 @@ object Service {
     private lateinit var regTimer: Timer
     private val touchTimers = mutableMapOf<String, Timer>()
     private var running = false
-    private val serverAddr by lazy { InetSocketAddress(SERVER_HOST, SERVER_PORT) }
-    private val myName by lazy { Build.BOARD }
+    private lateinit var serverAddr: InetSocketAddress
     private val _users = mutableListOf<User>()
     val users get() = _users.toList()
     var listener: ServiceListener? = null
 
-
     fun connect() {
         running = true
         thread {
+            serverAddr = InetSocketAddress(Prefs.serverHost, Prefs.serverPort)
             socket = DatagramSocket(InetSocketAddress("0.0.0.0", 0))
             while (running) {
                 val bytes = ByteArray(1024 * 128)
@@ -51,7 +49,9 @@ object Service {
         val regTask = object : TimerTask() {
             override fun run() {
                 if (running) {
-                    send(serverAddr, Msg(Event = "reg", Name = myName))
+                    if (this@Service::serverAddr.isInitialized) {
+                        send(serverAddr, Msg(Event = "reg", Name = Prefs.name))
+                    }
                 } else {
                     regTimer.cancel()
                 }
@@ -70,6 +70,11 @@ object Service {
             regTimer.cancel()
         }
         _users.clear()
+    }
+
+    fun reconnect() {
+        close()
+        connect()
     }
 
     private fun addUser(name: String, addr: SocketAddress): User {
@@ -107,7 +112,7 @@ object Service {
         val msg = gson.fromJson(content, Msg::class.java)
         when (msg.Event) {
             "reg" -> {
-                if (msg.Name == myName) {
+                if (msg.Name == Prefs.name) {
                     regTimer.cancel()
                     runOnMainThread { listener?.registered() }
                 } else {
@@ -178,7 +183,7 @@ object Service {
             timer = Timer()
             touchTimers[name] = timer
         }
-        timer!!.schedule(object : TimerTask() {
+        timer.schedule(object : TimerTask() {
             private var times = 0
             override fun run() {
                 times++
@@ -186,7 +191,7 @@ object Service {
                     cancelTouch(name)
                 } else {
                     println("touch: $name")
-                    send(ip, port, Msg(Event = "touch", Name = myName))
+                    send(ip, port, Msg(Event = "touch", Name = Prefs.name))
                 }
             }
         }, Date(), 1000)
@@ -207,7 +212,7 @@ object Service {
 
     fun requestTouch(name: String) {
         executor.execute {
-            send(serverAddr, Msg(Event = "touch", Name = myName, ToName = name))
+            send(serverAddr, Msg(Event = "touch", Name = Prefs.name, ToName = name))
         }
     }
 
@@ -215,7 +220,7 @@ object Service {
         DB.send(name, msg)
         executor.execute {
             val user = _users.find { it.name == name } ?: return@execute
-            send(user.addr, Msg(Event = "chat", Name = myName, Msg = msg))
+            send(user.addr, Msg(Event = "chat", Name = Prefs.name, Msg = msg))
         }
     }
 }

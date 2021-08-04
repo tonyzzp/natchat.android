@@ -4,8 +4,9 @@
     <option name="filePathToZoomLevelMap">
       <map>
         <entry key="..\:/myprojects/natchat.android/app/src/main/res/layout/activity_chat.xml" value="0.17194570135746606" />
-        <entry key="..\:/myprojects/natchat.android/app/src/main/res/layout/chat_listitem.xml" value="0.24785223367697595" />
+        <entry key="..\:/myprojects/natchat.android/app/src/main/res/layout/chat_listitem.xml" value="1.0" />
         <entry key="..\:/myprojects/natchat.android/app/src/main/res/menu/menu_mainactivity.xml" value="0.36614583333333334" />
+        <entry key="..\:/myprojects/natchat.android/app/src/main/res/xml/root_preferences.xml" value="0.25905797101449274" />
       </map>
     </option>
   </component>

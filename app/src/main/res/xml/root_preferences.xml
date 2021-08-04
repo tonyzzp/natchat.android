@@ -1,0 +1,22 @@
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory app:title="设置">
+
+        <EditTextPreference
+            app:key="server_host"
+            app:title="服务器地址"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            app:key="server_port"
+            app:title="服务器端口"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            app:key="name"
+            app:title="昵称"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>
