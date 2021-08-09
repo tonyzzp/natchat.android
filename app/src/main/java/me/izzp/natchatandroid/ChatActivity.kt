@@ -8,9 +8,16 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.core.view.MenuItemCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
+
+enum class ConnectState {
+    connecting,
+    connected,
+    connectFailed,
+}
 
 private val sdf =
     SimpleDateFormat.getDateTimeInstance(SimpleDateFormat.FULL, SimpleDateFormat.MEDIUM)
@@ -63,9 +70,35 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
     private val messages by lazy { DB.messages(name) }
     private val recyclerView by lazy { findViewById<RecyclerView>(R.id.recyclerView) }
     private val et by lazy { findViewById<EditText>(R.id.et_message) }
+    private var miLoading: LoadingActionProvider? = null
+    private var connectState = ConnectState.connecting
     private val dbListener = object : DBListener {
         override fun changed(name: String) {
             refresh()
+        }
+    }
+    private val serviceListener = object : ServiceListener() {
+        override fun touchBegin(name: String) {
+            if (name == this@ChatActivity.name) {
+                connectState = ConnectState.connecting
+                miLoading?.begin()
+                miLoading?.err = false
+            }
+        }
+
+        override fun touchSuccess(name: String) {
+            if (name == this@ChatActivity.name) {
+                connectState = ConnectState.connected
+                miLoading?.hide()
+            }
+        }
+
+        override fun touchFail(name: String) {
+            if (name == this@ChatActivity.name) {
+                connectState = ConnectState.connectFailed
+                miLoading?.stop()
+                miLoading?.err = true
+            }
         }
     }
 
@@ -81,12 +114,14 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
         et.setOnEditorActionListener(this)
         refresh()
         DB.addListener(dbListener)
+        Service.listener.add(serviceListener)
         Service.requestTouch(name)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         DB.removeListener(dbListener)
+        Service.listener.remove(serviceListener)
     }
 
     private fun refresh() {
@@ -112,6 +147,31 @@ class ChatActivity : AppCompatActivity(), TextView.OnEditorActionListener {
             return true
         }
         return false
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.chatactivity, menu)
+        miLoading =
+            MenuItemCompat.getActionProvider(menu.findItem(R.id.mi_loading)) as LoadingActionProvider
+        miLoading?.also {
+            when (connectState) {
+                ConnectState.connecting -> {
+                    it.begin()
+                }
+                ConnectState.connected -> {
+                    it.hide()
+                }
+                ConnectState.connectFailed -> {
+                    it.show()
+                    it.stop()
+                    it.err = true
+                }
+            }
+            it.onClick = {
+                Service.requestTouch(name)
+            }
+        }
+        return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

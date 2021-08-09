@@ -12,6 +12,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NatchatAndroid">
         <activity
+            android:name=".LogActivity"
+            android:label="日志"
+            android:launchMode="singleTask"
+            android:taskAffinity=".log" />
+        <activity
             android:name=".SettingsActivity"
             android:exported="true"
             android:label="@string/title_activity_settings">

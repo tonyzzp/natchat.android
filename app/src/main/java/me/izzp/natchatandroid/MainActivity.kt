@@ -45,31 +45,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val recyclerView by lazy { findViewById<RecyclerView>(R.id.recyclerView) }
+    private val serviceListener = object : ServiceListener() {
+        override fun registered() {
+            Service.loadUsers()
+        }
+
+        override fun userEnter(user: User) {
+            refreshList()
+        }
+
+        override fun userExit(user: User) {
+            refreshList()
+        }
+
+        override fun users(users: List<User>) {
+            refreshList()
+        }
+
+        override fun msg(msg: Msg) {
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         EventBus.regist(this)
-        Service.listener = object : ServiceListener() {
-            override fun registered() {
-                Service.loadUsers()
-            }
-
-            override fun userEnter(user: User) {
-                refreshList()
-            }
-
-            override fun userExit(user: User) {
-                refreshList()
-            }
-
-            override fun users(users: List<User>) {
-                refreshList()
-            }
-
-            override fun msg(msg: Msg) {
-            }
-        }
+        Service.listener.add(serviceListener)
         Service.connect()
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
@@ -100,18 +101,24 @@ class MainActivity : AppCompatActivity() {
         if (isFinishing) {
             EventBus.unregist(this)
             Service.close()
+            Logger.clear()
+            Service.listener.remove(serviceListener)
         }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.menu_mainactivity, menu)
+        menuInflater.inflate(R.menu.mainactivity, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.mi_refresh -> {
-                Service.loadUsers()
+                if (Service.isConnected || Service.isConnecting) {
+                    Service.loadUsers()
+                } else {
+                    Service.connect()
+                }
                 return true
             }
             R.id.mi_settings -> {

@@ -1,22 +1,35 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory app:title="设置">
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="设置">
 
         <EditTextPreference
+            app:iconSpaceReserved="false"
             app:key="server_host"
             app:title="服务器地址"
             app:useSimpleSummaryProvider="true" />
 
         <EditTextPreference
+            app:iconSpaceReserved="false"
             app:key="server_port"
             app:title="服务器端口"
             app:useSimpleSummaryProvider="true" />
 
         <EditTextPreference
+            app:iconSpaceReserved="false"
             app:key="name"
             app:title="昵称"
             app:useSimpleSummaryProvider="true" />
 
+    </PreferenceCategory>
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="其他">
+        <Preference
+            app:iconSpaceReserved="false"
+            app:key="log"
+            app:title="日志" />
     </PreferenceCategory>
 
 </PreferenceScreen>

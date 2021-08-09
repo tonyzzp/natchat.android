@@ -1,9 +1,11 @@
 package me.izzp.natchatandroid
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 
 class SettingsActivity : AppCompatActivity() {
@@ -53,6 +55,8 @@ class SettingsActivity : AppCompatActivity() {
                 val port = (newValue as String).trim().toIntOrNull()
                 return@setOnPreferenceChangeListener port != null
             }
+            findPreference<Preference>("log")!!.intent =
+                Intent(requireContext(), LogActivity::class.java)
         }
     }
 }

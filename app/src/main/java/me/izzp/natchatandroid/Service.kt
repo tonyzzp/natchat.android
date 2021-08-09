@@ -1,6 +1,5 @@
 package me.izzp.natchatandroid
 
-import com.google.gson.Gson
 import org.json.JSONArray
 import java.io.IOException
 import java.net.DatagramPacket
@@ -18,7 +17,6 @@ class User(
 
 object Service {
 
-    private val gson by lazy { Gson() }
     private val executor = Executors.newFixedThreadPool(4)
     private lateinit var socket: DatagramSocket
     private lateinit var regTimer: Timer
@@ -26,25 +24,35 @@ object Service {
     private var running = false
     private lateinit var serverAddr: InetSocketAddress
     private val _users = mutableListOf<User>()
+    val listener = MultiServiceListener()
     val users get() = _users.toList()
-    var listener: ServiceListener? = null
+    val isConnected: Boolean
+        get() {
+            return running && this::socket.isInitialized && !this.socket.isClosed
+        }
+    val isConnecting: Boolean
+        get() {
+            return running && !isConnected
+        }
 
     fun connect() {
         running = true
         thread {
             serverAddr = InetSocketAddress(Prefs.serverHost, Prefs.serverPort)
             socket = DatagramSocket(InetSocketAddress("0.0.0.0", 0))
+            Logger.log("Service.connect:${socket.localSocketAddress} -> $serverAddr")
             while (running) {
                 val bytes = ByteArray(1024 * 128)
                 val packet = DatagramPacket(bytes, bytes.size)
                 try {
                     socket.receive(packet)
                 } catch (e: IOException) {
-                    println("receive失败:${e}")
-                    continue
+                    Logger.log("receive失败:$e")
+                    break
                 }
                 processPacket(packet)
             }
+            close()
         }
         val regTask = object : TimerTask() {
             override fun run() {
@@ -86,7 +94,7 @@ object Service {
             synchronized(_users) {
                 _users.add(user)
             }
-            runOnMainThread { listener?.userEnter(user) }
+            runOnMainThread { listener.userEnter(user) }
         }
         return user
     }
@@ -101,20 +109,21 @@ object Service {
             synchronized(_users) {
                 _users.remove(user)
             }
-            runOnMainThread { listener?.userExit(user) }
+            runOnMainThread { listener.userExit(user) }
         }
         return user
     }
 
     private fun processPacket(packet: DatagramPacket) {
         val content = String(packet.data, packet.offset, packet.length)
-        println("receive:${packet.socketAddress} $content")
-        val msg = gson.fromJson(content, Msg::class.java)
+        Logger.log("receive:${packet.socketAddress} $content")
+        val msg = Msg.fromJson(content)
         when (msg.Event) {
             "reg" -> {
                 if (msg.Name == Prefs.name) {
                     regTimer.cancel()
-                    runOnMainThread { listener?.registered() }
+                    runOnMainThread { listener.registered() }
+                    loadUsers()
                 } else {
                     addUser(msg.Name, msg.IP, msg.Port)
                 }
@@ -131,6 +140,7 @@ object Service {
                 } else if (msg.Name.isNotEmpty()) {
                     // 对方主动联系
                     cancelTouch(msg.Name)
+                    listener.touchSuccess(msg.Name)
                 }
             }
             "unreg" -> {
@@ -149,31 +159,37 @@ object Service {
                         )
                         _users.add(User(name, addr))
                     }
+                    _users.sortBy { it.name }
                 }
-                runOnMainThread { listener?.users(_users) }
+                runOnMainThread { listener.users(_users) }
             }
             "chat" -> {
                 DB.receive(msg.Name, msg.Msg)
-                runOnMainThread { listener?.msg(msg) }
+                runOnMainThread { listener.msg(msg) }
             }
             else -> {
-                println("unknown message event")
+                Logger.log("unknown message event")
             }
         }
     }
 
-    private fun send(addr: SocketAddress, msg: Any) {
-        val json = gson.toJson(msg)
+    private fun send(addr: SocketAddress, msg: Msg) {
+        val json = msg.toJson()
+        Logger.log("Service.send: $addr , $json")
         executor.execute {
             if (this::socket.isInitialized && !socket.isClosed) {
                 val bytes = json.toByteArray()
                 val packet = DatagramPacket(bytes, 0, bytes.size, addr)
-                socket.send(packet)
+                try {
+                    socket.send(packet)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
 
-    private fun send(ip: String, port: Int, msg: Any) {
+    private fun send(ip: String, port: Int, msg: Msg) {
         send(InetSocketAddress(ip, port), msg)
     }
 
@@ -189,8 +205,8 @@ object Service {
                 times++
                 if (times >= 10) {
                     cancelTouch(name)
+                    listener.touchFail(name)
                 } else {
-                    println("touch: $name")
                     send(ip, port, Msg(Event = "touch", Name = Prefs.name))
                 }
             }
@@ -198,7 +214,7 @@ object Service {
     }
 
     private fun cancelTouch(name: String) {
-        println("touch cancel: $name")
+        Logger.log("touch cancel: $name")
         val timer = touchTimers[name]
         if (timer != null) {
             timer.cancel()
@@ -211,6 +227,7 @@ object Service {
     }
 
     fun requestTouch(name: String) {
+        listener.touchBegin(name)
         executor.execute {
             send(serverAddr, Msg(Event = "touch", Name = Prefs.name, ToName = name))
         }
