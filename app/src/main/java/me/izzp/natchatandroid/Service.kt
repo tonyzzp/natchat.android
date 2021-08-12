@@ -1,5 +1,8 @@
 package me.izzp.natchatandroid
 
+import me.izzp.upnp.portmapping.PortMapping
+import me.izzp.upnp.portmapping.Utils
+import me.izzp.upnp.portmapping.defaultIP4Address
 import org.json.JSONArray
 import java.io.IOException
 import java.net.DatagramPacket
@@ -41,6 +44,7 @@ object Service {
             serverAddr = InetSocketAddress(Prefs.serverHost, Prefs.serverPort)
             socket = DatagramSocket(InetSocketAddress("0.0.0.0", 0))
             Logger.log("Service.connect:${socket.localSocketAddress} -> $serverAddr")
+            requestUpnp(socket.localPort)
             while (running) {
                 val bytes = ByteArray(1024 * 128)
                 val packet = DatagramPacket(bytes, bytes.size)
@@ -54,19 +58,7 @@ object Service {
             }
             close()
         }
-        val regTask = object : TimerTask() {
-            override fun run() {
-                if (running) {
-                    if (this@Service::serverAddr.isInitialized) {
-                        send(serverAddr, Msg(Event = "reg", Name = Prefs.name))
-                    }
-                } else {
-                    regTimer.cancel()
-                }
-            }
-        }
-        regTimer = Timer()
-        regTimer.schedule(regTask, Date(), 2000)
+        requestReg()
     }
 
     fun close() {
@@ -83,6 +75,42 @@ object Service {
     fun reconnect() {
         close()
         connect()
+    }
+
+    private fun requestReg() {
+        if (this::regTimer.isInitialized) {
+            regTimer.cancel()
+        }
+        val regTask = object : TimerTask() {
+            override fun run() {
+                if (running) {
+                    if (this@Service::serverAddr.isInitialized) {
+                        send(serverAddr, Msg(Event = "reg", Name = Prefs.name))
+                    }
+                } else {
+                    regTimer.cancel()
+                }
+            }
+        }
+        regTimer = Timer()
+        regTimer.schedule(regTask, Date(), 2000)
+    }
+
+    private fun requestUpnp(port: Int) {
+        if (Prefs.upnpPort != 0 && Prefs.upnpPort != port) {
+            PortMapping.del(Prefs.upnpPort, "UDP") {}
+        }
+        if (port == 0) {
+            return
+        }
+        val localHost = Utils.findDefaultNetworkInterface()?.defaultIP4Address()
+        Logger.log("upnp localHost: $localHost")
+        PortMapping.add(port, "UDP", localHost?.hostName ?: "0.0.0.0", port, "natchat") {
+            println("upnp result: $it")
+            if (it == PortMapping.AddPortMappingResult.success) {
+                Prefs.upnpPort = port
+            }
+        }
     }
 
     private fun addUser(name: String, addr: SocketAddress): User {

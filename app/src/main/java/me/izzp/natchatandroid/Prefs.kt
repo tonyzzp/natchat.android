@@ -15,4 +15,10 @@ object Prefs {
             return port ?: 13688
         }
     val name get() = sp.getString("name", Build.MODEL) ?: "nobody"
+    val upnp get() = sp.getBoolean("upnp", false)
+    var upnpPort
+        get() = sp.getInt("upnp_port", 0)
+        set(value) {
+            sp.edit().putInt("upnp_port", value).apply()
+        }
 }
